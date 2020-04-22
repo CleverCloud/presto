@@ -62,6 +62,16 @@
             <artifactId>units</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.clever-cloud</groupId>
+            <artifactId>biscuit-java</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.vavr</groupId>
+            <artifactId>vavr</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>

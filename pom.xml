@@ -65,6 +65,9 @@
         <dep.alluxio.version>2.1.2</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.17.0</dep.druid.version>
+        <dep.biscuit.version>0.2.5</dep.biscuit.version>
+        <dep.vavr.version>0.10.2</dep.vavr.version>
+        <dep.curve25519.version>0.1.0</dep.curve25519.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -956,6 +959,24 @@
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt</artifactId>
                 <version>0.9.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.clever-cloud</groupId>
+                <artifactId>biscuit-java</artifactId>
+                <version>${dep.biscuit.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.vavr</groupId>
+                <artifactId>vavr</artifactId>
+                <version>${dep.vavr.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>cafe.cryptography</groupId>
+                <artifactId>curve25519-elisabeth</artifactId>
+                <version>${dep.curve25519.version}</version>
             </dependency>
 
             <dependency>
