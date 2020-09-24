@@ -118,6 +118,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -682,6 +683,78 @@ public class PrestoSparkQueryExecutionFactory
                 }
             }
             return result.build();
+        }
+
+        @Override
+        public Stream<List<Object>> executeAsStream()
+        {
+            queryStateTimer.beginRunning();
+
+            List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> rddResults;
+            try {
+                rddResults = doExecute(fragmentedPlan);
+                queryStateTimer.beginFinishing();
+                commit(session, transactionManager);
+                queryStateTimer.endQuery();
+            }
+            catch (Exception executionFailure) {
+                queryStateTimer.beginFinishing();
+                try {
+                    rollback(session, transactionManager);
+                }
+                catch (RuntimeException rollbackFailure) {
+                    log.error(rollbackFailure, "Encountered error when performing rollback");
+                }
+
+                Optional<ExecutionFailureInfo> failureInfo = Optional.empty();
+                if (executionFailure instanceof SparkException) {
+                    failureInfo = executionExceptionFactory.extractExecutionFailureInfo((SparkException) executionFailure);
+                }
+                if (!failureInfo.isPresent() && executionFailure instanceof PrestoSparkExecutionException) {
+                    failureInfo = executionExceptionFactory.extractExecutionFailureInfo((PrestoSparkExecutionException) executionFailure);
+                }
+                if (!failureInfo.isPresent()) {
+                    failureInfo = Optional.of(toFailure(executionFailure));
+                }
+
+                queryStateTimer.endQuery();
+
+                try {
+                    queryCompletedEvent(failureInfo);
+                }
+                catch (RuntimeException eventFailure) {
+                    log.error(eventFailure, "Error publishing query completed event");
+                }
+
+                throw failureInfo.get().toFailure();
+            }
+
+            processShuffleStats();
+
+            // successfully finished
+            try {
+                queryCompletedEvent(Optional.empty());
+            }
+            catch (RuntimeException eventFailure) {
+                log.error(eventFailure, "Error publishing query completed event");
+            }
+
+            Stream<List<Object>> stream = Stream.empty();
+
+            ConnectorSession connectorSession = session.toConnectorSession();
+            List<Type> types = fragmentedPlan.getFragment().getTypes();
+            for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : rddResults) {
+                Page page = pagesSerde.deserialize(toSerializedPage(tuple._2));
+                checkArgument(page.getChannelCount() == types.size(), "expected %s channels, got %s", types.size(), page.getChannelCount());
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    List<Object> columns = new ArrayList<>();
+                    for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                        columns.add(types.get(channel).getObjectValue(connectorSession.getSqlFunctionProperties(), page.getBlock(channel), position));
+                    }
+                    stream = Stream.concat(stream, Stream.of(unmodifiableList(columns)));
+                }
+            }
+            return stream;
         }
 
         public List<Type> getOutputTypes()

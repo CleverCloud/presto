@@ -14,8 +14,11 @@
 package com.facebook.presto.spark.classloader_interface;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 public interface IPrestoSparkQueryExecution
 {
     List<List<Object>> execute();
+
+    Stream<List<Object>> executeAsStream();
 }

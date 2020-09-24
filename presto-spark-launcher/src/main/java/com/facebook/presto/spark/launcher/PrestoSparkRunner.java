@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkDirectory;
 import static com.google.common.base.Preconditions.checkState;
@@ -96,6 +97,41 @@ public class PrestoSparkRunner
 
         System.out.println("Rows: " + results.size());
         results.forEach(System.out::println);
+    }
+
+    public Stream<List<Object>> runAsStream(
+            String catalog,
+            String schema,
+            String user,
+            String query,
+            Map<String, String> sessionProperties,
+            Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<String> userAgent,
+            Optional<String> clientInfo,
+            Optional<String> sparkQueueName,
+            Optional<Path> queryInfoOutputPath)
+    {
+        IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
+        PrestoSparkSession session = createSessionInfo(
+                catalog,
+                schema,
+                user,
+                sessionProperties,
+                catalogSessionProperties,
+                clientInfo,
+                userAgent);
+
+        IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
+                distribution.getSparkContext(),
+                session,
+                query,
+                sparkQueueName,
+                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
+                queryInfoOutputPath);
+
+        Stream<List<Object>> stream = queryExecution.executeAsStream();
+
+        return stream;
     }
 
     @Override
